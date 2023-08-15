@@ -1,0 +1,2 @@
+# Pinescript-Indicator-RISOTTO-RsiOptimizedTrendTracker
+ The Relative Strength Index Optimized Trend Tracker, also known as RISOTTO, is an indicator created by Mr. Anil Ozeksi. It utilizes VAR, RSI, and OTT. It does not move without feeling a strong trend on RSI, although the number of signals it gives is low, its p/l ratio is relatively high (of course, the parameters used in this are important). 
