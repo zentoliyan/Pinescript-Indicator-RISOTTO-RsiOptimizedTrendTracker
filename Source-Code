@@ -1,0 +1,133 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © zeubetella
+
+//@version=5
+indicator("RISOTTO", overlay = false)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+rsi_group = "RSI Parameters"
+var_group = "VAR Parameters"
+ott_group = "OTT Parameters"
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+X1 = input(100, title = "RSI Length",  group = rsi_group)
+X2 = input(50,  title = "VAR Length",  group = var_group)
+X4 = input(30,  title = "OTT Period",  group = ott_group)
+X3 = input(0.2, title = "OTT Percent", group = ott_group)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+//#region VAR
+
+f_var(data,u1) =>
+    a = 9
+    b = data > data[1] ? data - data[1] : 0
+    c = data < data[1] ? data[1] - data : 0
+    d = math.sum(b , a)
+    e = math.sum(c , a)
+    f = nz((d - e) / (d + e))
+    g = math.abs(f)
+    h = 2 / (u1 + 1)
+    x = ta.sma(data , u1)
+    vidya = 0.0
+    vidya :=
+     u1==1 ? data : na(vidya[1]) ? x :
+     g * h * (data - nz(vidya[1])) + nz(vidya[1])
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+//#endregion VAR
+
+//#region OTT
+OTT(source, length, percent) =>
+    MAVG = f_var(source, length)
+    fark = MAVG * percent * 0.01
+    longStop = MAVG - fark
+    longStopPrev = nz(longStop[1], longStop)
+    longStop := MAVG > longStopPrev ? math.max(longStop, longStopPrev) : longStop
+    shortStop = MAVG + fark
+    shortStopPrev = nz(shortStop[1], shortStop)
+    shortStop := MAVG < shortStopPrev ? math.min(shortStop, shortStopPrev) : shortStop
+    dir = 1
+    dir := nz(dir[1], dir)
+    dir := dir == -1 and MAVG > shortStopPrev ? 1 : dir == 1 and MAVG < longStopPrev ? -1 : dir
+    MT = dir == 1 ? longStop : shortStop
+    OTT = MAVG > MT ? MT * (200 + percent) / 200 : MT * (200 - percent) / 200
+    out = nz(OTT[2])
+
+//#endregion OTT
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+plot1 = f_var(ta.rsi(close,X1),X2) + 1000
+plot2 = OTT(f_var(ta.rsi(close,X1),X2) + 1000 , X4, X3)
+
+plot(plot1, color= color.new(#1fe5ff, 0),  title = "SUPPORT")
+plot(plot2, color= color.rgb(217, 0, 255), title = "RISOTTO")
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+bar_cond0 = ta.barssince(ta.crossover(plot2 , plot1))
+bar_cond1 = ta.barssince(ta.crossunder(plot2 , plot1))
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+rawNumberforTable1 = 5
+//
+var string TableGroup1 = "Table | Settings"
+//
+string  Table1PosInYaxis = input.string("bottom", 
+                             title = "Table Position", 
+                             inline = "1", 
+                             options = ["top", "middle", "bottom"], 
+                             group = TableGroup1)
+//
+string  Table1PosInXaxis = input.string("right", 
+                             " / ", 
+                             inline = "1", 
+                             options = ["left", "center", "right"], 
+                             group = TableGroup1)
+//
+var table table1 = table.new(Table1PosInYaxis + "_" + Table1PosInXaxis, 
+                             2, 
+                             rawNumberforTable1 + 1, 
+                             frame_color =  color.rgb(0, 0, 0), 
+                             frame_width = 1,
+                             border_color = color.rgb(0, 0, 0), 
+                             border_width = 1)
+//
+textstyleFORtable1 = input.string(size.small, 
+                             "Text Size", 
+                             options=[size.small, size.normal, size.large], 
+                             group = TableGroup1)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+if plot1 > plot2
+    table.cell(table1, 0, 0, "BUY",  text_halign = text.align_center, text_size = textstyleFORtable1, bgcolor = color.white)
+if plot1 < plot2
+    table.cell(table1, 0, 0, "SELL", text_halign = text.align_center, text_size = textstyleFORtable1, bgcolor = color.yellow)
+
+//
+
+if plot1 > plot2
+    table.cell(table1, 0, 1, str.tostring(bar_cond1) + " Candle", text_halign = text.align_center, text_size= textstyleFORtable1, bgcolor = color.white)
+if plot1 < plot2
+    table.cell(table1, 0, 1, str.tostring(bar_cond0) + " Candle", text_halign = text.align_center, text_size= textstyleFORtable1, bgcolor = color.yellow)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// @dg_factor hocama katkısınndan ötürü teşekkür ederim.
+// thank you to Mr. @dg_factor for his contribution.
+
+// Giriş Sinyalleri
+signals = input.bool(defval=true, title="Signals")
+plotshape(signals ? bar_cond1==0 ? plot1 : na : na, title='BUY',  text='BUY',  location=location.absolute, style=shape.circle, size=size.tiny, color=#00ff00, textcolor=#00ff00, editable=false)
+plotshape(signals ? bar_cond0==0 ? plot2 : na : na, title='SELL', text='SELL', location=location.absolute, style=shape.circle, size=size.tiny, color=#ff0000, textcolor=#ff0000, editable=false)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// kod bitiş, afiyet olsun. 
+// end of the code, bon appetit.
